@@ -1,0 +1,71 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block field_sets %}
+{% for fieldset in adminform %}
+{# SEE admin/templates/admin/includes/fieldset.html #}
+<fieldset class="module aligned {{ fieldset.classes }}">
+  {% if fieldset.name %}<h2>{{ fieldset.name }}</h2>{% endif %}
+  {% if fieldset.description %}
+  <div class="description">{{ fieldset.description|safe }}</div>
+  {% endif %}
+  {% for line in fieldset %}
+  <div class="form-row{% if line.fields|length_is:'1' and line.errors %} errors{% endif %}{% if not line.has_visible_field %} hidden{% endif %}{% for field in line %}{% if field.field.name %} field-{{ field.field.name }}{% endif %}{% endfor %}">
+    {% if line.fields|length_is:'1' %}{{ line.errors }}{% endif %}
+    {% for field in line %}
+    <div{% if not line.fields|length_is:'1' %} class="field-box{% if field.field.name %} field-{{ field.field.name }}{% endif %}{% if not field.is_readonly and field.errors %} errors{% endif %}{% if field.field.is_hidden %} hidden{% endif %}"{% elif field.is_checkbox %} class="checkbox-row"{% endif %}>
+    {% if not line.fields|length_is:'1' and not field.is_readonly %}{{ field.errors }}{% endif %}
+    {% if field.is_checkbox %}
+    {{ field.field }}{{ field.label_tag }}
+    {% else %}
+    {{ field.label_tag }}
+    {% if field.is_readonly %}
+    <div class="readonly">{{ field.contents }}</div>
+    {% else %}
+    {{ field.field }}
+    {# INIT: add custom button here #}
+    {% if field.field.name == 'content'%}
+    <input type="file" name="file" onchange="tesseract('content', this.files[0]);">
+    {% endif %}
+    {# END #}
+    {% endif %}
+    {% endif %}
+    {% if field.field.help_text %}
+    <div class="help">{{ field.field.help_text|safe }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+</fieldset>
+{% endfor %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{% csrf_token %}
+{{ block.super }}
+<script type="text/javascript">
+// TESSERACT
+var CSFR_TOKEN = document.getElementsByName("csrfmiddlewaretoken")[0].value;
+var TESERACT_URL = '/api/article/tesseract/';
+function tesseract(field, file) {
+  var textarea = document.getElementsByName(field)[0];
+  textarea.value = 'loading...';
+  var fd = new FormData();
+  fd.append("file", file);
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", TESERACT_URL);
+  xhr.setRequestHeader("X-CSRFToken", CSFR_TOKEN);
+  xhr.setRequestHeader("enctype", "multipart/form-data");
+  xhr.onload = function(event) {
+    if (xhr.status == 200) {
+      var data = JSON.parse(xhr.response);
+      textarea.value = data['transcript'];
+    } else {
+      console.log("Error " + xhr.status + " occurred when trying to upload your file.");
+    }
+  };
+  xhr.send(fd);
+}
+</script>
+{% endblock %}
